@@ -5,7 +5,7 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-  <!-- Background Rounded Square with Deep Blue Gradient -->
+  <!-- Main App Icon Squircle with Deep Blue Gradient (Transparent Outside Corners) -->
   <path
       android:pathData="M24,0 L84,0 C97.254,0 108,10.746 108,24 L108,84 C108,97.254 97.254,108 84,108 L24,108 C10.746,108 0,97.254 0,84 L0,24 C0,10.746 10.746,0 24,0 Z">
     <aapt:attr name="android:fillColor">
@@ -15,59 +15,50 @@
           android:endX="54"
           android:endY="108"
           android:type="linear">
-        <item android:color="#FF162848" android:offset="0.0" />
-        <item android:color="#FF0A1428" android:offset="1.0" />
+        <item android:color="#FF112648" android:offset="0.0" />
+        <item android:color="#FF071328" android:offset="1.0" />
       </gradient>
     </aapt:attr>
   </path>
 
-  <!-- Outer Glow Ring -->
+  <!-- Inner Edge Highlight -->
   <path
-      android:pathData="M54,12 C78.3,12 96,29.7 96,54 C96,78.3 78.3,96 54,96 C29.7,96 12,78.3 12,54 C12,29.7 29.7,12 54,12 Z"
-      android:strokeWidth="1.5"
-      android:strokeColor="#3360C0FF"
+      android:pathData="M24,1 L84,1 C96.7,1 107,11.3 107,24 L107,84 C107,96.7 96.7,107 84,107 L24,107 C11.3,107 1,96.7 1,84 L1,24 C1,11.3 11.3,1 24,1 Z"
+      android:strokeWidth="1"
+      android:strokeColor="#3360A5FA"
       android:fillColor="#00000000" />
 
-  <!-- Network Signal Bars -->
+  <!-- Network Signal Bars (Rounded Pill Shapes) -->
   <!-- Bar 1 (Lowest) -->
   <path
-      android:pathData="M32,68 C32,65.79 33.79,64 36,64 C38.21,64 40,65.79 40,68 L40,78 C40,80.21 38.21,82 36,82 C33.79,82 32,80.21 32,78 Z"
-      android:fillColor="#FF9ECAFE" />
+      android:pathData="M34,66 C34,63.79 35.79,62 38,62 C40.21,62 42,63.79 42,66 L42,76 C42,78.21 40.21,80 38,80 C35.79,80 34,78.21 34,76 Z"
+      android:fillColor="#FF70B0FF" />
 
   <!-- Bar 2 -->
   <path
-      android:pathData="M43,56 C43,53.79 44.79,52 47,52 C49.21,52 51,53.79 51,56 L51,78 C51,80.21 49.21,82 47,82 C44.79,82 43,80.21 43,78 Z"
-      android:fillColor="#FF9ECAFE" />
+      android:pathData="M44,54 C44,51.79 45.79,50 48,50 C50.21,50 52,51.79 52,54 L52,76 C52,78.21 50.21,80 48,80 C45.79,80 44,78.21 44,76 Z"
+      android:fillColor="#FF70B0FF" />
 
   <!-- Bar 3 -->
   <path
-      android:pathData="M54,44 C54,41.79 55.79,40 58,40 C60.21,40 62,41.79 62,44 L62,78 C62,80.21 60.21,82 58,82 C55.79,82 54,80.21 54,78 Z"
-      android:fillColor="#FF9ECAFE" />
+      android:pathData="M54,42 C54,39.79 55.79,38 58,38 C60.21,38 62,39.79 62,42 L62,76 C62,78.21 60.21,80 58,80 C55.79,80 54,78.21 54,76 Z"
+      android:fillColor="#FF70B0FF" />
 
   <!-- Bar 4 (Highest) -->
   <path
-      android:pathData="M65,32 C65,29.79 66.79,28 69,28 C71.21,28 73,29.79 73,32 L73,78 C73,80.21 71.21,82 69,82 C66.79,82 65,80.21 65,78 Z"
-      android:fillColor="#FF9ECAFE" />
+      android:pathData="M64,30 C64,27.79 65.79,26 68,26 C70.21,26 72,27.79 72,30 L72,76 C72,78.21 70.21,80 68,80 C65.79,80 64,78.21 64,76 Z"
+      android:fillColor="#FF70B0FF" />
 
-  <!-- Base Connecting Line -->
+  <!-- Base Connecting Line (Pill shape) -->
   <path
-      android:pathData="M26,84 L79,84"
-      android:strokeWidth="3"
-      android:strokeColor="#FFFFFFFF"
-      android:strokeLineCap="round" />
+      android:pathData="M34,78 L72,78 C73.1,78 74,78.9 74,80 C74,81.1 73.1,82 72,82 L34,82 C32.9,82 32,81.1 32,80 C32,78.9 32.9,78 34,78 Z"
+      android:fillColor="#FF70B0FF" />
 
   <!-- Diagonal Block / Prohibition Slash -->
   <path
-      android:pathData="M28,26 L80,78"
+      android:pathData="M28,27 L81,80"
       android:strokeWidth="7"
       android:strokeColor="#FFFF3B30"
-      android:strokeLineCap="round" />
-
-  <!-- Inner Highlight on Slash -->
-  <path
-      android:pathData="M28,26 L80,78"
-      android:strokeWidth="2"
-      android:strokeColor="#FFFF9999"
       android:strokeLineCap="round" />
 
 </vector>
