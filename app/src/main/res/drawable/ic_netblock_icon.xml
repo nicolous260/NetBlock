@@ -1,0 +1,73 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+  <!-- Background Rounded Square with Deep Blue Gradient -->
+  <path
+      android:pathData="M24,0 L84,0 C97.254,0 108,10.746 108,24 L108,84 C108,97.254 97.254,108 84,108 L24,108 C10.746,108 0,97.254 0,84 L0,24 C0,10.746 10.746,0 24,0 Z">
+    <aapt:attr name="android:fillColor">
+      <gradient
+          android:startX="54"
+          android:startY="0"
+          android:endX="54"
+          android:endY="108"
+          android:type="linear">
+        <item android:color="#FF162848" android:offset="0.0" />
+        <item android:color="#FF0A1428" android:offset="1.0" />
+      </gradient>
+    </aapt:attr>
+  </path>
+
+  <!-- Outer Glow Ring -->
+  <path
+      android:pathData="M54,12 C78.3,12 96,29.7 96,54 C96,78.3 78.3,96 54,96 C29.7,96 12,78.3 12,54 C12,29.7 29.7,12 54,12 Z"
+      android:strokeWidth="1.5"
+      android:strokeColor="#3360C0FF"
+      android:fillColor="#00000000" />
+
+  <!-- Network Signal Bars -->
+  <!-- Bar 1 (Lowest) -->
+  <path
+      android:pathData="M32,68 C32,65.79 33.79,64 36,64 C38.21,64 40,65.79 40,68 L40,78 C40,80.21 38.21,82 36,82 C33.79,82 32,80.21 32,78 Z"
+      android:fillColor="#FF9ECAFE" />
+
+  <!-- Bar 2 -->
+  <path
+      android:pathData="M43,56 C43,53.79 44.79,52 47,52 C49.21,52 51,53.79 51,56 L51,78 C51,80.21 49.21,82 47,82 C44.79,82 43,80.21 43,78 Z"
+      android:fillColor="#FF9ECAFE" />
+
+  <!-- Bar 3 -->
+  <path
+      android:pathData="M54,44 C54,41.79 55.79,40 58,40 C60.21,40 62,41.79 62,44 L62,78 C62,80.21 60.21,82 58,82 C55.79,82 54,80.21 54,78 Z"
+      android:fillColor="#FF9ECAFE" />
+
+  <!-- Bar 4 (Highest) -->
+  <path
+      android:pathData="M65,32 C65,29.79 66.79,28 69,28 C71.21,28 73,29.79 73,32 L73,78 C73,80.21 71.21,82 69,82 C66.79,82 65,80.21 65,78 Z"
+      android:fillColor="#FF9ECAFE" />
+
+  <!-- Base Connecting Line -->
+  <path
+      android:pathData="M26,84 L79,84"
+      android:strokeWidth="3"
+      android:strokeColor="#FFFFFFFF"
+      android:strokeLineCap="round" />
+
+  <!-- Diagonal Block / Prohibition Slash -->
+  <path
+      android:pathData="M28,26 L80,78"
+      android:strokeWidth="7"
+      android:strokeColor="#FFFF3B30"
+      android:strokeLineCap="round" />
+
+  <!-- Inner Highlight on Slash -->
+  <path
+      android:pathData="M28,26 L80,78"
+      android:strokeWidth="2"
+      android:strokeColor="#FFFF9999"
+      android:strokeLineCap="round" />
+
+</vector>
