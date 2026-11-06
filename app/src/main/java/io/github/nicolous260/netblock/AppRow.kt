@@ -43,7 +43,7 @@ fun AppRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onToggle(!isBlocked) },
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isBlocked)
                 MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
@@ -58,8 +58,8 @@ fun AppRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             val iconModifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .size(40.dp)
+                .clip(RoundedCornerShape(8.dp))
             if (app.icon != null) {
                 Image(bitmap = app.icon, contentDescription = null, modifier = iconModifier)
             } else {
@@ -67,12 +67,12 @@ fun AppRow(
                     Text(
                         text = app.label.take(1).uppercase(),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
 
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(

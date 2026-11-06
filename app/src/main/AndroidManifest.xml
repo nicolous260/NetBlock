@@ -15,8 +15,8 @@
     </queries>
 
     <application
-        android:icon="@drawable/ic_netblock_icon"
-        android:roundIcon="@drawable/ic_netblock_icon"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:label="NetBlock"
         android:theme="@style/Theme.NetBlock">
 

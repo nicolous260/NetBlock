@@ -150,7 +150,7 @@ class BlockerVpnService : VpnService() {
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("NetBlock is active")
             .setContentText("Selected apps have no internet")
-            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setSmallIcon(R.drawable.ic_stat_netblock)
             .setContentIntent(open)
             .setOngoing(true)
             .build()

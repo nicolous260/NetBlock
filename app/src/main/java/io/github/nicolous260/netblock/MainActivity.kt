@@ -3,6 +3,9 @@ package io.github.nicolous260.netblock
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
 import android.net.VpnService
 import android.os.Build
@@ -53,10 +56,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -188,7 +191,7 @@ class MainActivity : ComponentActivity() {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("NetBlock", fontWeight = FontWeight.Bold) },
+                    title = { Text("NetBlock", fontWeight = FontWeight.Medium) },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
@@ -228,13 +231,13 @@ class MainActivity : ComponentActivity() {
                             Text(
                                 text = if (blocking) "Protection Active" else "Protection Disabled",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.Medium,
                                 color = textColor
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 text = if (blocking)
-                                    "${blockedApps.size} app(s) blocked from internet"
+                                    if (blockedApps.size == 1) "1 app blocked" else "${blockedApps.size} apps blocked"
                                 else
                                     "Turn on to block selected apps",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -254,7 +257,7 @@ class MainActivity : ComponentActivity() {
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search apps...") },
+                    placeholder = { Text("Search") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -263,7 +266,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     },
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(10.dp),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -282,7 +285,7 @@ class MainActivity : ComponentActivity() {
                         text = "Installed Apps (${filteredApps.size})",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Medium
                     )
 
                     Spacer(Modifier.height(8.dp))
@@ -308,5 +311,16 @@ class MainActivity : ComponentActivity() {
 
 private const val LIST_ICON_PX = 128
 
-/** Rasterise at list size (42dp) instead of the icon's full intrinsic size. */
-private fun Drawable.toListIcon() = toBitmap(LIST_ICON_PX, LIST_ICON_PX).asImageBitmap()
+/**
+ * Rasterise at list size instead of the icon's full intrinsic size.
+ *
+ * An adaptive icon is drawn on a 108dp canvas but a launcher only shows the middle 72dp, so drawn
+ * naively the art ends up small inside its tile. Draw it oversized so the visible part fills it.
+ */
+private fun Drawable.toListIcon(): ImageBitmap {
+    val bitmap = Bitmap.createBitmap(LIST_ICON_PX, LIST_ICON_PX, Bitmap.Config.ARGB_8888)
+    val bleed = if (this is AdaptiveIconDrawable) LIST_ICON_PX * 18 / 72 else 0
+    setBounds(-bleed, -bleed, LIST_ICON_PX + bleed, LIST_ICON_PX + bleed)
+    draw(Canvas(bitmap))
+    return bitmap.asImageBitmap()
+}
