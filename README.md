@@ -31,7 +31,7 @@ Prebuilt APKs are on the [Releases](https://github.com/nicolous260/NetBlock/rele
 
 Since 1.1.0 the app ID is `io.github.nicolous260.netblock`, so it installs as a new app next to any older build.
 
-To publish one, push a tag (`git tag v1.2.0 && git push origin v1.2.0`). The Release workflow builds the APK and attaches it to a GitHub release. For a properly signed build, add these repository secrets: `NETBLOCK_KEYSTORE_BASE64` (the keystore, base64-encoded), `NETBLOCK_KEYSTORE_PASSWORD`, `NETBLOCK_KEY_ALIAS` and `NETBLOCK_KEY_PASSWORD`. Without them the APK is signed with the debug key and the release is marked as a pre-release.
+To publish one, bump `versionName` in `app/build.gradle.kts` and push to `main` (or push a `v*` tag). The Release workflow builds the APK and attaches it to a new GitHub release, unless that version is already released. For a properly signed build, add these repository secrets: `NETBLOCK_KEYSTORE_BASE64` (the keystore, base64-encoded), `NETBLOCK_KEYSTORE_PASSWORD`, `NETBLOCK_KEY_ALIAS` and `NETBLOCK_KEY_PASSWORD`. Without them the APK is signed with the debug key and the release is marked as a pre-release.
 
 ## License
 
