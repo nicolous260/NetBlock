@@ -1,4 +1,4 @@
-package com.example.netblock
+package io.github.nicolous260.netblock
 
 import android.content.BroadcastReceiver
 import android.content.Context

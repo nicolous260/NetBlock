@@ -1,4 +1,4 @@
-package com.example.netblock
+package io.github.nicolous260.netblock
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable

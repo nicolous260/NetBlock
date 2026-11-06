@@ -1,4 +1,4 @@
-package com.example.netblock
+package io.github.nicolous260.netblock
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme

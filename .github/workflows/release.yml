@@ -1,0 +1,63 @@
+name: Release
+
+# Push a tag like v1.1.0 to build the APK and publish it as a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to publish (must already exist)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore signing key
+        id: key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.NETBLOCK_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/netblock.jks"
+            echo "NETBLOCK_KEYSTORE=$RUNNER_TEMP/netblock.jks" >> "$GITHUB_ENV"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build release APK
+        env:
+          NETBLOCK_KEYSTORE_PASSWORD: ${{ secrets.NETBLOCK_KEYSTORE_PASSWORD }}
+          NETBLOCK_KEY_ALIAS: ${{ secrets.NETBLOCK_KEY_ALIAS }}
+          NETBLOCK_KEY_PASSWORD: ${{ secrets.NETBLOCK_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.key.outputs.signed }}
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+          cp "$APK" "NetBlock-${TAG}.apk"
+          if [ "$SIGNED" = "true" ]; then
+            gh release create "$TAG" "NetBlock-${TAG}.apk" --title "NetBlock ${TAG}" --generate-notes
+          else
+            gh release create "$TAG" "NetBlock-${TAG}.apk" --title "NetBlock ${TAG}" --generate-notes --prerelease \
+              --notes "Signed with the debug key because no release keystore secret is configured. Fine for trying it out; updates won't install over a build signed with a different key."
+          fi

@@ -1,4 +1,4 @@
-package com.example.netblock
+package io.github.nicolous260.netblock
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -157,7 +157,7 @@ class BlockerVpnService : VpnService() {
     }
 
     companion object {
-        const val ACTION_STOP = "com.example.netblock.STOP"
+        const val ACTION_STOP = "io.github.nicolous260.netblock.STOP"
         private const val CHANNEL_ID = "netblock_status"
         private const val NOTIF_ID = 1
 
