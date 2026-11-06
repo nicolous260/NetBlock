@@ -282,9 +282,9 @@ class MainActivity : ComponentActivity() {
                     }
                 } else {
                     Text(
-                        text = "Installed Apps (${filteredApps.size})",
+                        text = "Installed apps (${filteredApps.size})",
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
 

@@ -1,6 +1,7 @@
 package io.github.nicolous260.netblock
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,11 +64,15 @@ fun AppRow(
             if (app.icon != null) {
                 Image(bitmap = app.icon, contentDescription = null, modifier = iconModifier)
             } else {
-                Box(modifier = iconModifier, contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = iconModifier.background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
                         text = app.label.take(1).uppercase(),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
