@@ -5,12 +5,14 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import androidx.core.app.ServiceCompat
 import java.io.FileInputStream
+import java.io.IOException
 
 /**
  * Local "black hole" VPN.
@@ -21,7 +23,11 @@ class BlockerVpnService : VpnService() {
 
     private var tunnel: ParcelFileDescriptor? = null
     private var drainThread: Thread? = null
-    @Volatile private var running = false
+
+    override fun onCreate() {
+        super.onCreate()
+        running = true
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
@@ -43,15 +49,8 @@ class BlockerVpnService : VpnService() {
         return START_STICKY
     }
 
+    /** (Re)builds the tunnel from the current block list. Safe to call while already running. */
     private fun startBlocking() {
-        stopTunnelOnly()
-
-        val toBlock = Prefs.packagesToBlock(this)
-        if (toBlock.isEmpty()) {
-            stopBlocking()
-            return
-        }
-
         val builder = Builder()
             .setSession("NetBlock")
             .addAddress("10.0.0.2", 32)
@@ -60,41 +59,63 @@ class BlockerVpnService : VpnService() {
             .addRoute("::", 0)             // all IPv6 of the blocked apps -> tunnel
             .setBlocking(true)
 
-        for (pkg in toBlock) {
+        var routed = 0
+        for (pkg in Prefs.blocked(this)) {
             try {
-                builder.addAllowedApplication(pkg) // route only these apps into VPN tunnel
-            } catch (_: Exception) {
-                // package uninstalled; ignore
+                builder.addAllowedApplication(pkg) // route only these apps into the tunnel
+                routed++
+            } catch (_: PackageManager.NameNotFoundException) {
+                Prefs.setBlocked(this, pkg, false) // uninstalled: forget it
             }
         }
 
-        tunnel = builder.establish() ?: run { stopBlocking(); return }
-        running = true
-        Prefs.setBlocking(this, on = true)
+        // With no allowed apps Android routes EVERY app into the tunnel, which would cut the
+        // whole phone off. If there is nothing valid to block, there is nothing to establish.
+        if (routed == 0) {
+            stopBlocking()
+            return
+        }
 
-        // Read and discard everything so the tunnel never fills up. No forwarding = no internet.
-        val input = FileInputStream(tunnel!!.fileDescriptor)
-        drainThread = Thread {
-            val buf = ByteArray(32767)
-            try {
-                while (running) {
-                    if (input.read(buf) < 0) break // blocks, so no busy loop and no battery drain
-                }
-            } catch (_: Exception) {
-            }
-        }.also { it.start() }
+        // Establishing a new interface replaces the old one without a gap, so blocked apps
+        // never get a moment of open internet while the list changes.
+        val fresh = builder.establish()
+        if (fresh == null) { // VPN permission was revoked
+            stopBlocking()
+            return
+        }
+        val oldTunnel = tunnel
+        val oldThread = drainThread
+        tunnel = fresh
+        drainThread = startDrain(fresh)
+        closeTunnel(oldTunnel, oldThread)
+        Prefs.setBlocking(this, true)
     }
 
-    private fun stopTunnelOnly() {
-        running = false
-        try { tunnel?.close() } catch (_: Exception) {}
-        tunnel = null
-        drainThread?.interrupt()
-        drainThread = null
+    /** Read and discard everything so the tunnel never fills up. No forwarding = no internet. */
+    private fun startDrain(pfd: ParcelFileDescriptor): Thread {
+        val input = FileInputStream(pfd.fileDescriptor)
+        return Thread({
+            val buf = ByteArray(32767)
+            try {
+                while (input.read(buf) >= 0) { /* drop */ } // blocks, so no busy loop
+            } catch (_: IOException) {
+                // tunnel closed
+            }
+        }, "netblock-drain").also {
+            it.isDaemon = true
+            it.start()
+        }
+    }
+
+    private fun closeTunnel(pfd: ParcelFileDescriptor?, thread: Thread?) {
+        try { pfd?.close() } catch (_: IOException) {}
+        thread?.interrupt()
     }
 
     private fun stopBlocking() {
-        stopTunnelOnly()
+        closeTunnel(tunnel, drainThread)
+        tunnel = null
+        drainThread = null
         Prefs.setBlocking(this, false)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -106,7 +127,10 @@ class BlockerVpnService : VpnService() {
     }
 
     override fun onDestroy() {
-        stopTunnelOnly()
+        closeTunnel(tunnel, drainThread)
+        tunnel = null
+        drainThread = null
+        running = false
         super.onDestroy()
     }
 
@@ -136,5 +160,10 @@ class BlockerVpnService : VpnService() {
         const val ACTION_STOP = "com.example.netblock.STOP"
         private const val CHANNEL_ID = "netblock_status"
         private const val NOTIF_ID = 1
+
+        /** True while the service exists in this process. Resets on force-stop or process death. */
+        @Volatile
+        var running = false
+            private set
     }
 }

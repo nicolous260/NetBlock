@@ -1,57 +1,77 @@
 package com.example.netblock
 
+import android.Manifest
 import android.content.Intent
-import android.graphics.Bitmap
+import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.net.VpnService
+import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-
-data class AppItem(
-    val label: String,
-    val pkg: String,
-    val icon: Drawable?
-)
+import androidx.core.graphics.drawable.toBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+
+    /** Bumped when the user returns to the app, so the installed-app list is refreshed. */
+    private var reloadCount by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val pm = packageManager
-        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val apps = pm.queryIntentActivities(launcher, 0)
-            .map {
-                AppItem(
-                    label = it.loadLabel(pm).toString(),
-                    pkg = it.activityInfo.packageName,
-                    icon = it.loadIcon(pm)
-                )
-            }
-            .filter { it.pkg != packageName }
-            .sortedBy { it.label.lowercase() }
+        // The stored flag can be stale if the process was killed or the app was force-stopped.
+        if (Prefs.isBlocking(this) && !BlockerVpnService.running) {
+            Prefs.setBlocking(this, false)
+        }
 
         setContent {
             NetBlockTheme {
@@ -59,44 +79,107 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Screen(apps)
+                    Screen()
                 }
             }
         }
     }
 
+    override fun onRestart() {
+        super.onRestart()
+        reloadCount++
+    }
+
+    /** Runs off the main thread: querying and rasterising icons for every app is slow. */
+    private fun loadApps(): List<AppItem> {
+        val pm = packageManager
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        return pm.queryIntentActivities(launcher, 0)
+            .filter { it.activityInfo.packageName != packageName }
+            // An app can expose several launcher activities; the list is keyed by package.
+            .distinctBy { it.activityInfo.packageName }
+            .map {
+                AppItem(
+                    label = it.loadLabel(pm).toString(),
+                    pkg = it.activityInfo.packageName,
+                    icon = it.loadIcon(pm).toListIcon()
+                )
+            }
+            .sortedBy { it.label.lowercase() }
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    private fun Screen(apps: List<AppItem>) {
-        var blocking by remember { mutableStateOf(Prefs.isBlocking(this)) }
-        var blockedApps by remember { mutableStateOf(Prefs.blocked(this)) }
+    private fun Screen() {
+        val context = this
+        var blocking by remember { mutableStateOf(Prefs.isBlocking(context)) }
+        var blockedApps by remember { mutableStateOf(Prefs.blocked(context)) }
+        var apps by remember { mutableStateOf<List<AppItem>?>(null) }
         var searchQuery by remember { mutableStateOf("") }
 
+        // The service owns the real state; keep the UI in step with whatever it writes.
+        DisposableEffect(Unit) {
+            val stopObserving = Prefs.observe(context) {
+                blocking = Prefs.isBlocking(context)
+                blockedApps = Prefs.blocked(context)
+            }
+            onDispose(stopObserving)
+        }
+
+        LaunchedEffect(reloadCount) {
+            apps = withContext(Dispatchers.Default) { loadApps() }
+        }
+
+        // Starting the service also rebuilds the tunnel from the current list.
         fun startBlocking() {
-            startForegroundService(Intent(this, BlockerVpnService::class.java))
-            blocking = true
+            startForegroundService(Intent(context, BlockerVpnService::class.java))
         }
 
         fun stopBlocking() {
             startService(
-                Intent(this, BlockerVpnService::class.java)
+                Intent(context, BlockerVpnService::class.java)
                     .setAction(BlockerVpnService.ACTION_STOP)
             )
-            blocking = false
         }
 
         val vpnPermission = rememberLauncherForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { if (it.resultCode == RESULT_OK) startBlocking() }
 
-        fun turnOn() {
-            val prepare = VpnService.prepare(this)
+        fun requestVpn() {
+            val prepare = VpnService.prepare(context)
             if (prepare != null) vpnPermission.launch(prepare) else startBlocking()
         }
 
+        // Blocking works without the notification permission, so continue either way.
+        val notificationPermission = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { requestVpn() }
+
+        fun turnOn() {
+            if (blockedApps.isEmpty()) {
+                Toast.makeText(context, "Select at least one app to block first", Toast.LENGTH_SHORT).show()
+                return
+            }
+            val needsNotificationPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            if (needsNotificationPermission) {
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                requestVpn()
+            }
+        }
+
+        fun setBlocked(pkg: String, block: Boolean) {
+            Prefs.setBlocked(context, pkg, block)
+            // The service rebuilds the tunnel, or stops itself if nothing is left to block.
+            if (blocking) startBlocking()
+        }
+
         val filteredApps = remember(apps, searchQuery) {
-            if (searchQuery.isBlank()) apps
-            else apps.filter {
+            val all = apps.orEmpty()
+            if (searchQuery.isBlank()) all
+            else all.filter {
                 it.label.contains(searchQuery, ignoreCase = true) ||
                         it.pkg.contains(searchQuery, ignoreCase = true)
             }
@@ -104,14 +187,12 @@ class MainActivity : ComponentActivity() {
 
         Scaffold(
             topBar = {
-        TopAppBar(
-            title = {
-                Text("NetBlock", fontWeight = FontWeight.Bold)
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        )
+                TopAppBar(
+                    title = { Text("NetBlock", fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                )
             }
         ) { innerPadding ->
             Column(
@@ -122,7 +203,6 @@ class MainActivity : ComponentActivity() {
             ) {
                 Spacer(Modifier.height(8.dp))
 
-                // Hero Status Card
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -139,15 +219,17 @@ class MainActivity : ComponentActivity() {
                             .padding(20.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val textColor = if (blocking)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = if (blocking) "Protection Active" else "Protection Disabled",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (blocking)
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                color = textColor
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
@@ -156,24 +238,18 @@ class MainActivity : ComponentActivity() {
                                 else
                                     "Turn on to block selected apps",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = if (blocking)
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                color = textColor.copy(alpha = 0.8f)
                             )
                         }
                         Switch(
                             checked = blocking,
-                            onCheckedChange = { on ->
-                                if (on) turnOn() else stopBlocking()
-                            }
+                            onCheckedChange = { on -> if (on) turnOn() else stopBlocking() }
                         )
                     }
                 }
 
                 Spacer(Modifier.height(16.dp))
 
-                // Search Bar
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -197,113 +273,31 @@ class MainActivity : ComponentActivity() {
 
                 Spacer(Modifier.height(16.dp))
 
-                // List Header
-                Text(
-                    text = "Installed Apps (${filteredApps.size})",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
+                if (apps == null) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    Text(
+                        text = "Installed Apps (${filteredApps.size})",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(8.dp))
 
-                // App List
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 24.dp)
-                ) {
-                    items(filteredApps, key = { it.pkg }) { app ->
-                        val isBlocked = app.pkg in blockedApps
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val newBlocked = !isBlocked
-                                    Prefs.setBlocked(this@MainActivity, app.pkg, newBlocked)
-                                    blockedApps = Prefs.blocked(this@MainActivity)
-                                    if (blocking) {
-                                        if (blockedApps.isEmpty()) {
-                                            stopBlocking()
-                                        } else {
-                                            startBlocking()
-                                        }
-                                    }
-                                },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isBlocked)
-                                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
-                                else
-                                    MaterialTheme.colorScheme.surfaceContainerLow
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 24.dp)
+                    ) {
+                        items(filteredApps, key = { it.pkg }) { app ->
+                            AppRow(
+                                app = app,
+                                isBlocked = app.pkg in blockedApps,
+                                onToggle = { block -> setBlocked(app.pkg, block) }
                             )
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // App Icon
-                                val bitmap = remember(app.icon) { app.icon?.toImageBitmap() }
-                                if (bitmap != null) {
-                                    Image(
-                                        bitmap = bitmap,
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(42.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                    )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(42.dp)
-                                            .clip(RoundedCornerShape(10.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = app.label.take(1).uppercase(),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-
-                                Spacer(Modifier.width(14.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = app.label,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        text = if (isBlocked) "Internet blocked" else "Internet allowed",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (isBlocked)
-                                            MaterialTheme.colorScheme.error
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                    )
-                                }
-
-                                Switch(
-                                    checked = isBlocked,
-                                    onCheckedChange = { block ->
-                                        Prefs.setBlocked(this@MainActivity, app.pkg, block)
-                                        blockedApps = Prefs.blocked(this@MainActivity)
-                                        if (blocking) {
-                                            if (blockedApps.isEmpty()) {
-                                                stopBlocking()
-                                            } else {
-                                                startBlocking()
-                                            }
-                                        }
-                                    }
-                                )
-                            }
                         }
                     }
                 }
@@ -312,65 +306,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private fun Drawable.toImageBitmap(): ImageBitmap {
-    val width = if (intrinsicWidth > 0) intrinsicWidth else 96
-    val height = if (intrinsicHeight > 0) intrinsicHeight else 96
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    val canvas = android.graphics.Canvas(bitmap)
-    setBounds(0, 0, canvas.width, canvas.height)
-    draw(canvas)
-    return bitmap.asImageBitmap()
-}
+private const val LIST_ICON_PX = 128
 
-@Composable
-fun NetBlockTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
-    val colorScheme = if (darkTheme) {
-        darkColorScheme(
-            primary = Color(0xFF9ECAFE),
-            onPrimary = Color(0xFF00325B),
-            primaryContainer = Color(0xFF00497D),
-            onPrimaryContainer = Color(0xFFD1E4FF),
-            secondary = Color(0xFFBBC7DB),
-            onSecondary = Color(0xFF253140),
-            secondaryContainer = Color(0xFF3B4858),
-            onSecondaryContainer = Color(0xFFD7E3F8),
-            background = Color(0xFF111318),
-            onBackground = Color(0xFFE2E2E6),
-            surface = Color(0xFF111318),
-            onSurface = Color(0xFFE2E2E6),
-            surfaceContainerLow = Color(0xFF1A1C22),
-            surfaceVariant = Color(0xFF42474E),
-            onSurfaceVariant = Color(0xFFC2C7CF),
-            errorContainer = Color(0xFF93000A),
-            onErrorContainer = Color(0xFFFFDAD6)
-        )
-    } else {
-        lightColorScheme(
-            primary = Color(0xFF0061A4),
-            onPrimary = Color(0xFFFFFFFF),
-            primaryContainer = Color(0xFFD1E4FF),
-            onPrimaryContainer = Color(0xFF001D36),
-            secondary = Color(0xFF535F70),
-            onSecondary = Color(0xFFFFFFFF),
-            secondaryContainer = Color(0xFFD7E3F8),
-            onSecondaryContainer = Color(0xFF0F1D2A),
-            background = Color(0xFFFDFCFF),
-            onBackground = Color(0xFF1A1C1E),
-            surface = Color(0xFFFDFCFF),
-            onSurface = Color(0xFF1A1C1E),
-            surfaceContainerLow = Color(0xFFF0F4F9),
-            surfaceVariant = Color(0xFFDFE2EB),
-            onSurfaceVariant = Color(0xFF42474E),
-            errorContainer = Color(0xFFFFDAD6),
-            onErrorContainer = Color(0xFF410002)
-        )
-    }
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
-}
+/** Rasterise at list size (42dp) instead of the icon's full intrinsic size. */
+private fun Drawable.toListIcon() = toBitmap(LIST_ICON_PX, LIST_ICON_PX).asImageBitmap()
